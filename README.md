@@ -1,2 +1,2 @@
 # threading-emulation
-CSC 453 Project 2
+CSC 453 Assgn 2
