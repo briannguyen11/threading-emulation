@@ -1,5 +1,4 @@
 #include "../include/lwp.h"
-#include "../include/linked_list.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -84,7 +83,7 @@ tid_t lwp_create(lwpfun function, void *argument)
     {
         thread_head->left = new_thread;
         new_thread->right = thread_head;
-        thread_head = new_thread;
+        thread_head = new_thread; // this else body puts new_thread in the front of current head
     }
 
     return new_thread->tid;
