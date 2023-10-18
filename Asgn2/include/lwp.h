@@ -9,13 +9,19 @@
 #define FALSE 0
 #endif
 
-/* new defines*/
+/* new defines */
 #define DEFAULT_STACK_SIZE (8 * 1024 * 1024) // 8MB as a default stack size
+
 #define lib_one right;
 #define lib_two left;
 #define sched_one next;
 #define sched_two prev;
 
+void rr_admit(thread new);
+void rr_remove(thread victim);
+thread rr_next(void);
+
+/* context switch registers */
 #if defined(__x86_64)
 #include <fp.h>
 typedef struct __attribute__((aligned(16))) __attribute__((packed))

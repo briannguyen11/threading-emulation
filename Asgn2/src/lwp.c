@@ -6,8 +6,15 @@
 #include <sys/mman.h>
 
 // global variables
-unsigned int next_tid = 0; // for setting tid
-thread thread_head = NULL;
+unsigned int next_tid = 0; // counter for tid
+
+rfile main_ctx; // saves main stack context before thread execution
+
+thread thread_head = NULL; // head of local double linked list
+thread thread_curr = NULL; // thread being executed
+
+static struct scheduler round_robin = {NULL, NULL, rr_admit, rr_remove, rr_next};
+scheduler sched = &round_robin;
 
 /******************** Support Functions *******************/
 
@@ -20,6 +27,11 @@ static void lwp_wrap(lwpfun fun, void *arg)
 
 /******************** Main Functions *******************/
 
+/*
+ * Description: creates lwp struct with setup stack
+ * Params: lwpfun funnction and void *arguments
+ * Return: tid of newly created thread
+ */
 tid_t lwp_create(lwpfun function, void *argument)
 {
     thread new_thread;
@@ -74,8 +86,11 @@ tid_t lwp_create(lwpfun function, void *argument)
     new_thread->right = NULL;
     new_thread->left = NULL;
 
-    /* inserting into doubly linked list */
-    if (!thread_head)
+    /* schedule new thread */
+    sched->admit(new_thread);
+
+    /* inserting into local doubly linked list */
+    if (thread_head == NULL)
     {
         thread_head = new_thread;
     }
@@ -87,6 +102,57 @@ tid_t lwp_create(lwpfun function, void *argument)
     }
 
     return new_thread->tid;
+}
+
+/*
+ * Description: begins execution of threads
+ * Params: void
+ * Return: void
+ */
+void lwp_start(void)
+{
+    /* ensure lwp start called after lwp_create() */
+    if (thread_curr != NULL && next_tid == 1)
+    {
+        return;
+    }
+
+    /* get thread to execute from sched */
+    thread_curr = sched->next();
+
+    /* if current thread is NULL, return to main proccess */
+    if (thread_curr == NULL)
+    {
+        swap_rfiles(NULL, &main_ctx);
+        return; // should not reach bc stack pointer points somewhere else
+    }
+
+    /* otherwise, save original context and switch to new thread */
+    swap_rfiles(&main_ctx, &thread_curr->state);
+}
+
+/*
+ * Description: yeilds execution to another LWP
+ * Params: void
+ * Return: void
+ */
+void lwp_yield(void)
+{
+    thread thread_former_curr;
+
+    /* move to new thread to execute */
+    thread_former_curr = thread_curr;
+    thread_curr = sched->next();
+
+    /* if current thread is NULL, return to main proccess */
+    if (thread_curr == NULL)
+    {
+        swap_rfiles(NULL, &main_ctx);
+        return; // should not reach bc stack pointer points somewhere else
+    }
+
+    /* otherwise, save former thread context and switch to new thread */
+    swap_rfiles(&thread_former_curr, &thread_curr->state);
 }
 
 int main(int argc, char *argv[])
