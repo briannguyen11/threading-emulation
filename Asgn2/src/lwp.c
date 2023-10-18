@@ -59,7 +59,7 @@ tid_t lwp_create(lwpfun function, void *argument)
     /* set addresses in stack */
     unsigned long *stack_ptr = new_thread->stack + new_thread->stacksize; // assuming 16 byte aligned
     *(stack_ptr--) = (unsigned long)lwp_wrap;                             // decrem by 1 moves 8 bytes
-    *(stack_ptr--) = (unsigned long)stack_ptr;
+    *(stack_ptr--) = (unsigned long)stack_ptr;                            // set addr of curr sp in stack ?
 
     /* set up context registers */
     new_thread->state.rbp = (unsigned long)stack_ptr;
@@ -68,13 +68,14 @@ tid_t lwp_create(lwpfun function, void *argument)
     new_thread->state.rsi = (unsigned long)argument;
     new_thread->state.fxsave = FPU_INIT;
 
-    /* init thread links */
+    /* init pointers for internal doubly linked list (will not need linked_list.c)
+    and prev, next, etc. are #defines in .h */
     new_thread->prev = NULL;
     new_thread->next = NULL;
     new_thread->right = NULL;
     new_thread->left = NULL;
 
-    /* set up internal doubly linked list */
+    /* inserting into doubly linked list */
     if (!thread_head)
     {
         thread_head = new_thread;
