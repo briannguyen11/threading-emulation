@@ -2,11 +2,19 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-/* scheduler manipulates a doubly linked list by maintaining a
-queue of threads to be executed. Top of queue is next to be run */
+/*
+ * Summary: scheduler manipulates a doubly linked list by maintaining a
+ * queue of threads to be executed. Top of queue is next to be run
+ */
+
 thread head = NULL;
 thread tail = NULL;
 
+/*
+ * Description: adds new thread to end of queue
+ * Params: new thread
+ * Return: void
+ */
 void rr_admit(thread new)
 {
     if (head == NULL && tail == NULL)
@@ -22,6 +30,11 @@ void rr_admit(thread new)
     tail = new;
 }
 
+/*
+ * Description: removes victim thread from queue
+ * Params: victim thread
+ * Return: void
+ */
 void rr_remove(thread victim)
 {
     /* begin searching for victim starting at tail */
@@ -62,6 +75,11 @@ void rr_remove(thread victim)
     }
 }
 
+/*
+ * Description: dequues top of queue for next thread to be executed and resscheules that thread for RR
+ * Params: void
+ * Return: thread to be next ran
+ */
 thread rr_next(void)
 {
     thread thread_to_run;
