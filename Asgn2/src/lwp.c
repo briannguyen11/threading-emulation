@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <sys/resource.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 // global variables
 unsigned int next_tid = 0; // counter for tid
@@ -154,6 +155,50 @@ void lwp_yield(void)
     /* otherwise, save former thread context and switch to new thread */
     swap_rfiles(&thread_former_curr, &thread_curr->state);
 }
+
+
+void lwp_exit(int exitval)
+{
+    if (thread_curr != NULL)
+    {
+        sched->remove(thread_curr);
+
+        /* Set stack to safe memory location */
+        unsigned long *safe_stack = thread_curr->stack;
+        curr->state.rsp = (uint64_t)safe_stack;
+
+        /* make sure thread is terminated before deallocation */
+        if (lwp_wait() != NULL)
+        {
+            /* schedule and yield to next thread */
+            thread_curr = sched->next();
+            lwp_yield();
+        }
+    }
+    else
+    {
+        /* Swap to main process context if no thread running */
+        swap_rfiles(&thread_curr->state, &main_ctx);
+    }
+}
+
+
+tid_t lwp_wait(int *status)
+{
+    /* deallocates resources for terminated thread */
+    tid_t temp_tid = lwp_gettid();
+    free(thread_curr->stack);
+    free(thread_curr);
+
+    if (thread_curr == NULL)
+    {
+        /* Swap to main process context if no thread running */
+        swap_rfiles(&thread_curr->state, &main_ctx);
+    }
+    return temp_tid;
+}
+
+
 
 int main(int argc, char *argv[])
 {
