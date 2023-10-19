@@ -1,7 +1,9 @@
+#define _GNU_SOURCE
 #include "../include/lwp.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <sys/resource.h>
 #include <sys/mman.h>
 
@@ -17,7 +19,11 @@ static struct scheduler round_robin = {NULL, NULL, rr_admit, rr_remove, rr_next}
 scheduler sched = &round_robin;
 
 /******************** Support Functions *******************/
-
+/*
+ * Description: wrapper to take in thread function and args for thread function
+ * Params: lwpfun fun and void *arg
+ * Return: void
+ */
 static void lwp_wrap(lwpfun fun, void *arg)
 {
     int rval;
@@ -28,7 +34,7 @@ static void lwp_wrap(lwpfun fun, void *arg)
 /******************** Main Functions *******************/
 
 /*
- * Description: creates lwp struct with setup stack
+ * Description: creates thread struct with setup stack
  * Params: lwpfun funnction and void *arguments
  * Return: tid of newly created thread
  */
@@ -39,14 +45,6 @@ tid_t lwp_create(lwpfun function, void *argument)
     /* init new thread */
     new_thread = (thread)malloc(sizeof(context));
     if (!new_thread)
-    {
-        perror("lwp_create");
-        return (tid_t)-1;
-    }
-
-    /* allocate memory for the stack (mmap returns addr to new allocated stack) */
-    new_thread->stack = mmap(NULL, DEFAULT_STACK_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
-    if (!new_thread->stacksize)
     {
         perror("lwp_create");
         return (tid_t)-1;
@@ -64,13 +62,26 @@ tid_t lwp_create(lwpfun function, void *argument)
         new_thread->stacksize = ((DEFAULT_STACK_SIZE + page_size - 1) / page_size) * page_size;
     }
 
+    /* allocate memory for the stack (mmap returns addr to new allocated stack) */
+    new_thread->stack = mmap(NULL, new_thread->stacksize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
+    if (!new_thread->stacksize)
+    {
+        perror("lwp_create");
+        return (tid_t)-1;
+    }
+
     /* set tid */
     new_thread->tid = next_tid++;
 
     /* set addresses in stack */
-    unsigned long *stack_ptr = new_thread->stack + new_thread->stacksize; // assuming 16 byte aligned
-    *(stack_ptr--) = (unsigned long)lwp_wrap;                             // decrem by 1 moves 8 bytes
-    *(stack_ptr--) = (unsigned long)stack_ptr;                            // set addr of curr sp in stack ?
+    unsigned long *stack_ptr = new_thread->stack + (new_thread->stacksize / sizeof(unsigned long)); // bottom of stack
+    if ((uintptr_t)stack_ptr % 16 != 0)
+    {
+        stack_ptr = (unsigned long *)((uintptr_t)stack_ptr - ((uintptr_t)stack_ptr % 16)); // ensure 16-byte alignment
+    }
+    stack_ptr--;
+    *stack_ptr = (unsigned long)lwp_wrap; // decrem by 1 moves 8 bytes
+    stack_ptr--;                          // set addr of curr sp in stack ?
 
     /* set up context registers */
     new_thread->state.rbp = (unsigned long)stack_ptr;
@@ -132,7 +143,7 @@ void lwp_start(void)
 }
 
 /*
- * Description: yeilds execution to another LWP
+ * Description: gives up execution to another thread via context switch
  * Params: void
  * Return: void
  */
@@ -153,6 +164,25 @@ void lwp_yield(void)
 
     /* otherwise, save former thread context and switch to new thread */
     swap_rfiles(&thread_former_curr, &thread_curr->state);
+}
+
+/*
+ * Description: terminates current thread and goes to next thread
+ * Params: void
+ * Return: void
+ */
+void lwp_exit(int status)
+{
+    if (thread_curr != NULL)
+    {
+        /* remove thread */
+        sched->remove(thread_curr);
+
+        /* update status of terminated thread */
+        thread_curr->status = status;
+
+        /* move stack to safe place before deallocation */
+    }
 }
 
 int main(int argc, char *argv[])
