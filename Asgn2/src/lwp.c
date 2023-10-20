@@ -1,5 +1,5 @@
 #define _GNU_SOURCE
-#include "../include/lwp.h"
+#include "lwp.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -163,29 +163,34 @@ void lwp_yield(void)
     }
 
     /* otherwise, save former thread context and switch to new thread */
-    swap_rfiles(&thread_former_curr, &thread_curr->state);
+    swap_rfiles(&thread_former_curr->state, &thread_curr->state);
 }
 
 /*
- * Description: terminates current thread and goes to next thread
- * Params: void
- * Return: void
+ *Description : terminates current thread and goes to next thread
+ *Params : void
+ *Return : void
  */
-void lwp_exit(int status)
+void lwp_exit(int exitval)
 {
     if (thread_curr != NULL)
     {
-        /* remove thread */
-        sched->remove(thread_curr);
+        thread thread_finished_curr;
 
-        /* update status of terminated thread */
-        thread_curr->status = status;
+        thread_finished_curr = thread_curr;
 
-        /* move stack to safe place before deallocation */
+        sched->remove(thread_finished_curr);
+
+        thread_curr = sched->next();
+
+        /* if current thread is NULL, return to main proccess */
+        if (thread_curr == NULL)
+        {
+            swap_rfiles(NULL, &main_ctx);
+            return; // should not reach bc stack pointer points somewhere else
+        }
+
+        /* otherwise, save former thread context and switch to new thread */
+        swap_rfiles(NULL, &thread_curr->state);
     }
-}
-
-int main(int argc, char *argv[])
-{
-    return 0;
 }
