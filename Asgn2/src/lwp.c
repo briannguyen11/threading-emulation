@@ -220,16 +220,17 @@ void lwp_exit(int status)
  */
 tid_t lwp_wait(int *status)
 {
+    /* block if no threads terminated and still running */
+    while (tid_cnt > 0 && wait_add_idx == 0)
+    {
+        // do nothing
+    }
+
     /* get top of wait_queue and keep track of indices for wait queue */
     thread thread_terminated = wait_queue[wait_rmx_idx];
     int terminated_id = thread_terminated->tid;
     wait_rmx_idx++;
     tid_cnt--;
-
-    if (thread_terminated == NULL)
-    {
-        printf("%s", "what is going on");
-    }
 
     /* clean up allocated stack for specific thread */
     if (munmap(thread_terminated->stack, thread_terminated->stacksize) == -1)
@@ -245,7 +246,7 @@ tid_t lwp_wait(int *status)
     free(thread_terminated);
 
     /* clean up allocated wait queue */
-    if (tid_cnt == 0 && (wait_add_idx - (wait_rmx_idx + 1)) == 0)
+    if (tid_cnt == 0 && (wait_add_idx - wait_rmx_idx) == 0)
     {
         free(wait_queue);
     }
