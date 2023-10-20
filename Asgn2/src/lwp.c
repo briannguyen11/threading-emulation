@@ -12,11 +12,15 @@ unsigned int next_tid = 0; // counter for tid
 
 rfile main_ctx; // saves main stack context before thread execution
 
-thread thread_head = NULL; // head of local double linked list
-thread thread_curr = NULL; // thread being executed
+thread thread_internal = NULL; // head of local double linked list
+thread thread_curr = NULL;     // thread being executed
 
 static struct scheduler round_robin = {NULL, NULL, rr_admit, rr_remove, rr_next};
 scheduler sched = &round_robin;
+
+thread *wait_queue;
+int wait_add_idx = 0;
+int wait_rmx_idx = 0;
 
 /******************** Support Functions *******************/
 /*
@@ -71,7 +75,8 @@ tid_t lwp_create(lwpfun function, void *argument)
     }
 
     /* set tid */
-    new_thread->tid = next_tid++;
+    next_tid++;
+    new_thread->tid = next_tid;
 
     /* set addresses in stack */
     unsigned long *stack_ptr = new_thread->stack + (new_thread->stacksize / sizeof(unsigned long)); // bottom of stack
@@ -101,15 +106,15 @@ tid_t lwp_create(lwpfun function, void *argument)
     sched->admit(new_thread);
 
     /* inserting into local doubly linked list */
-    if (thread_head == NULL)
+    if (thread_internal == NULL)
     {
-        thread_head = new_thread;
+        thread_internal = new_thread;
     }
     else
     {
-        thread_head->left = new_thread;
-        new_thread->right = thread_head;
-        thread_head = new_thread; // this else body puts new_thread in the front of current head
+        thread_internal->left = new_thread;
+        new_thread->right = thread_internal;
+        thread_internal = new_thread; // this else body puts new_thread in the front of current head
     }
 
     return new_thread->tid;
@@ -122,6 +127,9 @@ tid_t lwp_create(lwpfun function, void *argument)
  */
 void lwp_start(void)
 {
+    /* init wait queue */
+    wait_queue = malloc(sizeof(thread) * next_tid);
+
     /* ensure lwp start called after lwp_create() */
     if (thread_curr != NULL && next_tid == 1)
     {
@@ -179,6 +187,9 @@ void lwp_exit(int exitval)
 
         thread_finished_curr = thread_curr;
 
+        wait_queue[wait_add_idx] = thread_finished_curr;
+        wait_add_idx++;
+
         sched->remove(thread_finished_curr);
 
         thread_curr = sched->next();
@@ -192,5 +203,97 @@ void lwp_exit(int exitval)
 
         /* otherwise, save former thread context and switch to new thread */
         swap_rfiles(NULL, &thread_curr->state);
+    }
+}
+
+/*
+ *Description : cleans up terminated threads
+ *Params : int status
+ *Return : tid_t tid
+ */
+tid_t lwp_wait(int *status)
+{
+    /* get top of wait_queue */
+    thread thread_terminated = wait_queue[wait_rmx_idx];
+    wait_rmx_idx++;
+
+    if (thread_terminated == NULL)
+    {
+        printf("%s", "what is going on");
+    }
+
+    if (munmap(thread_terminated->stack, thread_terminated->stacksize) == -1)
+    {
+        perror("munmap");
+        return 1;
+    }
+    status = thread_terminated->status;
+    return thread_terminated->tid;
+}
+
+/*
+ *Description : returns tid of calling thread
+ *Params : none
+ *Return : tid_t tid
+ */
+tid_t lwp_gettid(void)
+{
+    if (thread_curr == NULL)
+    {
+        return NO_THREAD;
+    }
+    else
+    {
+        return thread_curr->tid;
+    }
+}
+
+/*
+ *Description : returns thread given its tid
+ *Params : tid_t tid
+ *Return : thread
+ */
+thread tid2thread(tid_t tid)
+{
+    thread thread_return;
+
+    thread_return = thread_internal;
+
+    while (thread_return != NULL)
+    {
+        if (thread_return->tid == tid)
+        {
+            return thread_return;
+        }
+        else
+        {
+            thread_return = thread_return->right;
+            return NULL;
+        }
+    }
+}
+/*
+ *Description : returns a pointer to current scheduler
+ *Params : void
+ *Return : scheduler
+ */
+scheduler lwp_get_scheduler(void)
+{
+    return sched;
+}
+
+/*
+ *Description : sets the current scheduler to sched and moves all
+ * threadsto new scheduler
+ *Params : void
+ *Return : scheduler
+ */
+void lwp_set_scheduler(scheduler sched)
+{
+    if (sched != NULL)
+    {
+    }
+    else
+    {
     }
 }

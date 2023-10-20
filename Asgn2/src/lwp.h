@@ -9,10 +9,12 @@
 #define FALSE 0
 #endif
 
-#define lib_one right;
-#define lib_two left;
-#define sched_one next;
-#define sched_two prev;
+#define lib_one right
+#define lib_two left
+#define sched_one next
+#define sched_two prev
+
+#define WAIT_QUEUE_SIZE 150
 
 /* context switch registers */
 #if defined(__x86_64)
