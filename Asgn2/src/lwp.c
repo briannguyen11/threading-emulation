@@ -248,6 +248,7 @@ tid_t lwp_wait(int *status)
     /* clean up allocated wait queue */
     if (tid_cnt == 0 && (wait_add_idx - wait_rmx_idx) == 0)
     {
+        terminated_id = NO_THREAD;
         free(wait_queue);
     }
 
