@@ -18,9 +18,12 @@ thread thread_curr = NULL;     // thread being executed
 static struct scheduler round_robin = {NULL, NULL, rr_admit, rr_remove, rr_next};
 scheduler sched = &round_robin;
 
-thread *wait_queue;
-int wait_add_idx = 0;
-int wait_rmx_idx = 0;
+thread wait_queue_first = NULL;
+thread wait_queue_last = NULL;
+
+thread *terminated_queue;
+int terminated_add_idx;
+int terminated_rmv_idx;
 
 /******************** Support Functions *******************/
 /*
@@ -107,16 +110,16 @@ tid_t lwp_create(lwpfun function, void *argument)
     sched->admit(new_thread);
 
     /* inserting into local doubly linked list */
-    if (thread_internal == NULL)
-    {
-        thread_internal = new_thread;
-    }
-    else
-    {
-        thread_internal->left = new_thread;
-        new_thread->right = thread_internal;
-        thread_internal = new_thread; // this else body puts new_thread in the front of current head
-    }
+    // if (thread_internal == NULL)
+    // {
+    //     thread_internal = new_thread;
+    // }
+    // else
+    // {
+    //     thread_internal->left = new_thread;
+    //     new_thread->right = thread_internal;
+    //     thread_internal = new_thread; // this else body puts new_thread in the front of current head
+    // }
 
     return new_thread->tid;
 }
@@ -129,7 +132,13 @@ tid_t lwp_create(lwpfun function, void *argument)
 void lwp_start(void)
 {
     /* init wait queue */
-    wait_queue = malloc(sizeof(thread) * tid_cnt);
+    terminated_queue = malloc(sizeof(thread) * tid_cnt);
+
+    /* init main thread */
+    thread main_thread = (thread)malloc(sizeof(context));
+    main_thread->tid = 0;
+    main_thread->state = main_ctx;
+    sched->admit(main_thread);
 
     /* ensure lwp start called after lwp_create() */
     if (thread_curr != NULL && tid_cnt == 1)
@@ -148,7 +157,7 @@ void lwp_start(void)
     }
 
     /* otherwise, save original context and switch to new thread */
-    swap_rfiles(&main_ctx, &thread_curr->state);
+    swap_rfiles(&main_thread->state, &thread_curr->state);
 }
 
 /*
@@ -167,6 +176,7 @@ void lwp_yield(void)
     /* if current thread is NULL, return to main proccess */
     if (thread_curr == NULL)
     {
+        // printf("from yield\n");
         swap_rfiles(NULL, &main_ctx);
         return; // should not reach bc stack pointer points somewhere else
     }
@@ -184,31 +194,52 @@ void lwp_exit(int status)
 {
     if (thread_curr != NULL)
     {
-        thread thread_finished_curr;
-        thread_finished_curr = thread_curr;
-
-        /* update status of removed thread */
-        thread_finished_curr->status = MKTERMSTAT(LWP_TERM, status);
-
-        /* pushed thread to remove onto waiting queue */
-        wait_queue[wait_add_idx] = thread_finished_curr;
-        wait_add_idx++;
-
-        /* remove thread */
-        sched->remove(thread_finished_curr);
-
-        /* scehdule new thread */
-        thread_curr = sched->next();
-
-        /* if current thread is NULL, return to main proccess */
-        if (thread_curr == NULL)
+        if (thread_curr->tid != 0)
         {
-            swap_rfiles(NULL, &main_ctx);
-            return; // should not reach bc stack pointer points somewhere else
-        }
+            thread thread_finished_curr;
+            thread_finished_curr = thread_curr;
 
-        /* otherwise, save former thread context and switch to new thread */
-        swap_rfiles(NULL, &thread_curr->state);
+            /* if there is a waiting thread, take the top and store in eixiting threads exitied ptr */
+            if (wait_queue_first != NULL)
+            {
+                thread rmv_assoc_waiting_thread = wait_queue_first;
+                wait_queue_first = wait_queue_first->right;
+                if (wait_queue_first != NULL)
+                {
+                    wait_queue_first->left = NULL;
+                }
+                else
+                {
+                    wait_queue_last = NULL;
+                }
+                // thread_finished_curr->exited = rmv_assoc_waiting_thread;
+                rmv_assoc_waiting_thread->exited = thread_finished_curr;
+                sched->admit(rmv_assoc_waiting_thread);
+            }
+
+            /* update status of removed thread */
+            thread_finished_curr->status = MKTERMSTAT(LWP_TERM, status);
+
+            /* pushed thread to remove onto waiting queue */
+            terminated_queue[terminated_add_idx] = thread_finished_curr;
+            terminated_add_idx++;
+
+            /* remove thread */
+            sched->remove(thread_finished_curr);
+
+            /* scehdule new thread */
+            thread_curr = sched->next();
+
+            /* if current thread is NULL, return to main proccess */
+            if (thread_curr == NULL)
+            {
+                swap_rfiles(NULL, &main_ctx);
+                return; // should not reach bc stack pointer points somewhere else
+            }
+
+            /* otherwise, save former thread context and switch to new thread */
+            swap_rfiles(NULL, &thread_curr->state);
+        }
     }
 }
 
@@ -219,37 +250,89 @@ void lwp_exit(int status)
  */
 tid_t lwp_wait(int *status)
 {
-    /* block if no threads terminated and still running */
-    while (tid_cnt > 0 && wait_add_idx == 0)
+    // printf("called wait\n");
+    int terminated_id = NO_THREAD;
+
+    /* if not threads in terminated queue, put current thread into waiting queue */
+    if ((terminated_add_idx - terminated_rmv_idx) == 0)
     {
-        // do nothing
+        sched->remove(thread_curr); // removed from main sched
+
+        if (wait_queue_first == NULL && wait_queue_last == NULL)
+        {
+            wait_queue_first = thread_curr;
+            wait_queue_last = thread_curr;
+        }
+        else
+        {
+            wait_queue_last->right = thread_curr;
+            thread_curr->left = wait_queue_last;
+            wait_queue_last = thread_curr;
+        }
+
+        /* context switch to new thread */
+        lwp_yield();
+
+        /* returns here */
+        if (thread_curr->exited != NULL)
+        {
+            /* remove itself from sched */
+            sched->remove(thread_curr);
+
+            /* top of terminated queue */
+            thread thread_terminated = thread_curr->exited;
+            terminated_id = thread_terminated->tid;
+
+            // adjust terminated queue
+            terminated_rmv_idx++;
+            tid_cnt--;
+
+            /* clean up allocated stack for specific thread */
+            if (munmap(thread_terminated->stack, thread_terminated->stacksize) == -1)
+            {
+                perror("munmap");
+                return 1;
+            }
+
+            /* update exit status */
+            *status = thread_terminated->status;
+
+            /* clean up thread */
+            free(thread_terminated);
+            return terminated_id;
+        }
     }
-
-    /* get top of wait_queue and keep track of indices for wait queue */
-    thread thread_terminated = wait_queue[wait_rmx_idx];
-    int terminated_id = thread_terminated->tid;
-    wait_rmx_idx++;
-    tid_cnt--;
-
-    /* clean up allocated stack for specific thread */
-    if (munmap(thread_terminated->stack, thread_terminated->stacksize) == -1)
+    else
     {
-        perror("munmap");
-        return 1;
+        /* get top of terminated_queue and keep track of indices for wait queue */
+        thread thread_terminated = terminated_queue[terminated_rmv_idx];
+
+        printf("something in terminate: %d\n", thread_terminated->tid);
+
+        terminated_id = thread_terminated->tid;
+        terminated_rmv_idx++;
+        tid_cnt--;
+
+        /* clean up allocated stack for specific thread */
+        if (munmap(thread_terminated->stack, thread_terminated->stacksize) == -1)
+        {
+            perror("munmap");
+            return 1;
+        }
+
+        /* update exit status */
+        *status = thread_terminated->status;
+
+        /* clean up thread */
+        free(thread_terminated);
     }
-
-    /* update exit status */
-    *status = thread_terminated->status;
-
-    /* clean up thread */
-    free(thread_terminated);
 
     /* clean up allocated wait queue */
-    if (tid_cnt == 0 && (wait_add_idx - wait_rmx_idx) == 0)
+    if (tid_cnt == 0 && (terminated_add_idx - terminated_rmv_idx) == 0)
     {
-        free(wait_queue);
+        free(terminated_queue);
     }
-
+    // printf("this is my return tid: %d\n", terminated_id);
     return terminated_id;
 }
 
