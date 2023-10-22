@@ -30,7 +30,7 @@ allclean: clean
 clean:	
 	rm -f $(OBJS) *~ TAGS
 
-snakes: randomsnakes.o libLWP.a libsnakes.a
+snakes: randomsnakes.o libLWP.a libsnakes.so #libsnakes.a
 	$(LD) $(LDFLAGS) -o snakes randomsnakes.o -L. -lncurses -lsnakes -lLWP
 
 # hungry: hungrysnakes.o libLWP.a libsnakes.a

@@ -302,7 +302,10 @@ tid_t lwp_wait(int *status)
             }
 
             /* update exit status */
-            *status = thread_terminated->status;
+            if (status != NULL)
+            {
+                *status = thread_terminated->status;
+            }
 
             /* clean up thread */
             free(thread_terminated);
@@ -335,7 +338,10 @@ tid_t lwp_wait(int *status)
         }
 
         /* update exit status */
-        *status = thread_terminated->status;
+        if (status != NULL)
+        {
+            *status = thread_terminated->status;
+        }
 
         /* clean up thread */
         free(thread_terminated);
