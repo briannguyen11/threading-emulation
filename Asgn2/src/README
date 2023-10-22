@@ -1,0 +1,14 @@
+a. Brian Nguyen and Charles Snead
+b. The following commands may be necessary to run the nums, snakes, and hungry programs:
+
+export MY_VARIABLE=~pn-cs453/Given/Asgn2/lib64/
+export MY_VARIABLE=~pn-cs453/Given/Asgn2/lib64/lib
+export MY_VARIABLE=~pn-cs453/Given/Asgn2/lib64/libsnakes.so
+LDLD_LIBRARY_PATH=~pn-cs453/Given/Asgn2/lib64/
+LD_LIBRARY_PATH=~pn-cs453/Given/Asgn2/lib64/
+export LD_LIBRARY_PATH
+
+After running "make" all programs should be able to run with "./nums", "./snakes", "./hungry"
+
+c. Program works properly
+d. 

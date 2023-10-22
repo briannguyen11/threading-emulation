@@ -395,9 +395,9 @@ thread tid2thread(tid_t tid)
         else
         {
             thread_return = thread_return->right;
-            return NULL;
         }
     }
+    return NULL;
 }
 /*
  *Description : returns a pointer to current scheduler
