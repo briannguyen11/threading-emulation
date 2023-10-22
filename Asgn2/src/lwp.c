@@ -25,6 +25,8 @@ thread *terminated_queue;
 int terminated_add_idx;
 int terminated_rmv_idx;
 
+int last_exit_flg = 0;
+
 /******************** Support Functions *******************/
 /*
  * Description: wrapper to take in thread function and args for thread function
@@ -110,16 +112,16 @@ tid_t lwp_create(lwpfun function, void *argument)
     sched->admit(new_thread);
 
     /* inserting into local doubly linked list */
-    // if (thread_internal == NULL)
-    // {
-    //     thread_internal = new_thread;
-    // }
-    // else
-    // {
-    //     thread_internal->left = new_thread;
-    //     new_thread->right = thread_internal;
-    //     thread_internal = new_thread; // this else body puts new_thread in the front of current head
-    // }
+    if (thread_internal == NULL)
+    {
+        thread_internal = new_thread;
+    }
+    else
+    {
+        thread_internal->left = new_thread;
+        new_thread->right = thread_internal;
+        thread_internal = new_thread; // this else body puts new_thread in the front of current head
+    }
 
     return new_thread->tid;
 }
@@ -240,6 +242,11 @@ void lwp_exit(int status)
             /* otherwise, save former thread context and switch to new thread */
             swap_rfiles(NULL, &thread_curr->state);
         }
+
+        if (last_exit_flg == 1 && thread_curr->tid == 0)
+        {
+            free(thread_curr);
+        }
     }
 }
 
@@ -299,6 +306,13 @@ tid_t lwp_wait(int *status)
 
             /* clean up thread */
             free(thread_terminated);
+
+            /* clean up allocated wait queue */
+            if (tid_cnt == 0 && (terminated_add_idx - terminated_rmv_idx) == 0)
+            {
+                free(terminated_queue);
+                last_exit_flg = 1;
+            }
             return terminated_id;
         }
     }
@@ -328,11 +342,13 @@ tid_t lwp_wait(int *status)
     }
 
     /* clean up allocated wait queue */
+    printf("%d", terminated_add_idx - terminated_rmv_idx);
     if (tid_cnt == 0 && (terminated_add_idx - terminated_rmv_idx) == 0)
     {
         free(terminated_queue);
+        printf("I set the flag\n");
+        last_exit_flg = 1;
     }
-    // printf("this is my return tid: %d\n", terminated_id);
     return terminated_id;
 }
 
