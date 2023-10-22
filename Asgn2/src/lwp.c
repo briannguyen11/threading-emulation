@@ -404,17 +404,36 @@ scheduler lwp_get_scheduler(void)
 }
 
 /*
- *Description : sets the current scheduler to sched and moves all
- * threadsto new scheduler
- *Params : void
- *Return : scheduler
+ *Description : sets the current scheduler to new_sched
+ * and moves all threads to new scheduler
+ *Params : scheduler
+ *Return : void
  */
-void lwp_set_scheduler(scheduler sched)
+void lwp_set_scheduler(scheduler new_sched)
 {
-    if (sched != NULL)
+    thread thread_move;
+
+    /* default to round robin */
+    if (new_sched->init == NULL)
     {
+        new_sched = &round_robin;
     }
-    else
+
+    /* initialize new scheduler */
+    new_sched->init();
+
+    /* move each thread from old to new scheduler */
+    while (thread_move = new_sched->next())
     {
+        sched->remove(thread_move);
+        new_sched->admit(thread_move);
     }
+
+    /* shutdown old scheduler */
+    if (sched->shutdown != NULL)
+    {
+        sched->shutdown();
+    }
+
+    sched = new_sched;
 }
