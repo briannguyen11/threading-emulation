@@ -24,10 +24,10 @@ EXTRACLEAN = core $(PROGS)
 
 all: 	$(PROGS)
 
-allclean: clean
+clean: cleanobjs
 	@rm -f $(EXTRACLEAN)
 
-clean:	
+cleanobjs:	
 	rm -f $(OBJS) *~ TAGS
 
 snakes: randomsnakes.o libLWP.a libsnakes.a
