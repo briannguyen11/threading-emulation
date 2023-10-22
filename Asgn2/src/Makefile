@@ -6,7 +6,7 @@ LD 	= gcc
 
 LDFLAGS  = -Wall -g 
 
-PROGS	= nums ## snakes  hungry
+PROGS	= nums snakes # hungry
 
 SNAKEOBJS  = randomsnakes.o 
 
@@ -30,8 +30,8 @@ allclean: clean
 clean:	
 	rm -f $(OBJS) *~ TAGS
 
-# snakes: randomsnakes.o libLWP.a libsnakes.a
-# 	$(LD) $(LDFLAGS) -o snakes randomsnakes.o -L. -lncurses -lsnakes -lLWP
+snakes: randomsnakes.o libLWP.a libsnakes.a
+	$(LD) $(LDFLAGS) -o snakes randomsnakes.o -L. -lncurses -lsnakes -lLWP
 
 # hungry: hungrysnakes.o libLWP.a libsnakes.a
 # 	$(LD) $(LDFLAGS) -o hungry hungrysnakes.o -L. -lncurses -lsnakes -lLWP
@@ -41,7 +41,7 @@ nums: numbersmain.o libLWP.a
 
 # hungrysnakes.o: lwp.h snakes.h
 
-# randomsnakes.o: lwp.h snakes.h
+randomsnakes.o: lwp.h snakes.h
 
 numbermain.o: lwp.h
 
