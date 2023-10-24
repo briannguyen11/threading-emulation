@@ -11,4 +11,4 @@ export LD_LIBRARY_PATH
 After running "make" all programs should be able to run with "./nums", "./snakes", "./hungry"
 
 c. Program works properly
-d. 
+d. Nothing else to consider

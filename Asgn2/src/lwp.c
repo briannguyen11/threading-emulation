@@ -15,7 +15,7 @@ rfile main_ctx; // saves main stack context before thread execution
 thread thread_internal = NULL; // head of local double linked list
 thread thread_curr = NULL;     // thread being executed
 
-static struct scheduler round_robin = {NULL, NULL, rr_admit, rr_remove, rr_next};
+static struct scheduler round_robin = {rr_init, rr_shutdown, rr_admit, rr_remove, rr_next};
 scheduler sched = &round_robin;
 
 thread wait_queue_first = NULL;

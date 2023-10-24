@@ -100,8 +100,11 @@ void swap_rfiles(rfile *old, rfile *new);
 /* new defines */
 #define DEFAULT_STACK_SIZE (8 * 1024 * 1024) // 8MB as a default stack size
 
+void rr_init(void);
+void rr_shutdown(void);
 void rr_admit(thread new);
 void rr_remove(thread victim);
 thread rr_next(void);
+int rr_qlen(void);
 
 #endif

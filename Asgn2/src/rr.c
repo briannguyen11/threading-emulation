@@ -9,6 +9,7 @@
 
 thread head = NULL;
 thread tail = NULL;
+int length = 0;
 
 /*
  * Description: adds new thread to end of queue
@@ -21,6 +22,7 @@ void rr_admit(thread new)
     {
         head = new;
         tail = new;
+        length++;
         return;
     }
 
@@ -28,6 +30,7 @@ void rr_admit(thread new)
     tail->next = new;
     new->prev = tail;
     tail = new;
+    length++;
 }
 
 /*
@@ -42,6 +45,7 @@ void rr_remove(thread victim)
     while (temp != NULL && temp->tid != victim->tid)
     {
         temp = temp->prev;
+        length--;
     }
 
     /* if tail is NULL or no victim found */
@@ -76,7 +80,7 @@ void rr_remove(thread victim)
 }
 
 /*
- * Description: dequues top of queue for next thread to be executed and resscheules that thread for RR
+ * Description: dequeues top of queue for next thread to be executed and resscheules that thread for RR
  * Params: void
  * Return: thread to be next ran
  */
@@ -112,4 +116,19 @@ thread rr_next(void)
     rr_admit(thread_to_run);
 
     return thread_to_run;
+}
+
+int rr_qlen(void)
+{
+    return length;
+}
+
+void rr_init(void)
+{
+    return;
+}
+
+void rr_shutdown(void)
+{
+    return;
 }
